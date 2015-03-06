@@ -1,12 +1,7 @@
-{Emitter} = require 'event-kit'
-
 module.exports =
 class LessCompilerProcess
   initialize: ->
     @inProgress = false
-    @isPanelShow = false
-
-    @emitter = new Emitter
 
     atom.commands.add 'atom-workspace', 'core:save': (e) =>
       if !@inProgress
@@ -15,16 +10,6 @@ class LessCompilerProcess
   # Tear down any state and detach
   destroy: ->
     @detach()
-
-  # Eventos
-  showPanel: (callback) ->
-    @emitter.on 'showPanel', callback
-
-  hidePanel: (callback) ->
-    @emitter.on 'hidePanel', callback
-
-  addMessage: (callback) ->
-    @emitter.on 'addMessage', callback
 
   compile: (editor) ->
     path = require 'path'
@@ -71,9 +56,9 @@ class LessCompilerProcess
         callback params
 
     if !fs.existsSync filePath
-      @emitter.emit 'showPanel', {}
-      @emitter.emit 'addMessage', {icon: '', typeMessage: 'error', message: "main: #{filePath} not exist"}
-      @emitter.emit 'hidePanel', {}
+      atom.notifications.addError "Less-Compiler",
+        detail: "main: #{filePath} not exist"
+        dismissable: true
 
       @inProgress = false
       return null
@@ -108,22 +93,18 @@ class LessCompilerProcess
 
       @inProgress = true
 
-      if !@isPanelShow
-        @isPanelShow = true
-        @emitter.emit 'showPanel', {}
-
       parser = new less.Parser
         paths: [path.dirname path.resolve(params.file)]
         filename: path.basename params.file
 
       fs.readFile params.file, (error, data) =>
         parser.parse data.toString(), (error, tree) =>
-          @emitter.emit 'addMessage', {icon: 'icon-file-text', typeMessage: 'info', message: filePath}
-
           try
             if error
               @inProgress = false
-              @emitter.emit 'addMessage', {icon: '', typeMessage: 'error', message: "#{error.message} - index: #{error.index}, line: #{error.line}, file: #{error.filename}"}
+              atom.notifications.addError "Less-Compiler",
+                detail: "#{error.message} - index: #{error.index}, line: #{error.line}, file: #{error.filename}",
+                dismissable: true
             else
               css = tree.toCSS
                 compress: params.compress
@@ -133,14 +114,13 @@ class LessCompilerProcess
 
               @writeFile css, newFile, newPath, =>
                 @inProgress = false
-                @emitter.emit 'addMessage', {icon: 'icon-file-symlink-file', typeMessage: 'success', message: newFile}
+                atom.notifications.addSuccess "Less-Compiler",
+                  detail: "out: #{newFile}"
           catch e
             @inProgress = false
-            @emitter.emit 'addMessage', {icon: '', typeMessage: 'error', message: "#{e.message} - index: #{e.index}, line: #{e.line}, file: #{e.filename}"}
-
-          if @isPanelShow
-            @isPanelShow = false
-            @emitter.emit 'hidePanel', {}
+            atom.notifications.addError "Less-Compiler",
+              detail: "#{e.message} - index: #{e.index}, line: #{e.line}, file: #{e.filename}"
+              dismissable: true
 
     @getParams filePath, (params) ->
       if params isnt null
