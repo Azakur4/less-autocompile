@@ -29,6 +29,7 @@ class LessCompilerProcess
     params =
       file: filePath
       compress: false
+      successNotify: true
       main: false
       out: false
 
@@ -114,8 +115,7 @@ class LessCompilerProcess
 
               @writeFile css, newFile, newPath, =>
                 @inProgress = false
-                atom.notifications.addSuccess "Less-Compiler",
-                  detail: "out: #{newFile}"
+	            atom.notifications.addSuccess "Less-Compiler", detail: "out: #{newFile}"  if params.successNotify
           catch e
             @inProgress = false
             atom.notifications.addError "Less-Compiler",
